@@ -1,7 +1,205 @@
-<html>
-	<head>
-	</head>
-	<body>
-		Project 1 here
-	</body>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>
+  body {
+    padding: 100px;
+    width: 1000px;
+    margin: auto;
+    text-align: left;
+    font-weight: 300;
+    font-family: 'Open Sans', sans-serif;
+    color: #121212;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+</style>
+<title>CS 184 Rasterizer</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+<h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2023</h1>
+<h1 align="middle">Project 1: Rasterizer</h1>
+<h2 align="middle">Olivia Huang</h2>
+
+<br><br>
+
+<div>
+
+<h2 align="middle">Overview</h2>
+
+<p>We first generated images by splitting it into triangles, rasterizing, then coloring them. Then, we were tasked with manipulating the triangles through transformation and interpolation. I've dealt with interpolation from a prior computer vision class, but this was the first time I had to manually implement it! In addition, I familiarized myself with c++ syntax and was able to understand image processing on a more object-oriented level. Overall, I enjoyed learning about the ways math ties into graphics, especially with Barycentric coordinates and the basis vectors.</p>
+
+<h2 align="middle">Section I: Rasterization</h2>
+
+<h3 align="middle">Part 1: Rasterizing single-color triangles</h3>
+
+<p>We implemented a naive rasterizer for triangles using the three line test. After computing the smallest possinle bounding box with the coordinates of the triangle vertices, we iterated through each pixel center in the bounding box. This makes the efficiency the same as checking each sample in the bounding box. The pixel was colored if it was within the three triangle edges defined by the vertices. To calculate this, we generated three line equations for each pair of vertices. In general, the line was defined by ((y1 - y2) * x + (x2 - x1) * y + x1 * y2 - x2 * y1) / ((y1 - y2) * x0 + (x2 - x1) * y0 + x1 * y2 - x2 * y1), which the x and y value changing for each point. If the value was between 0 and 1, then the point would be considered inside the triangle, and colored. The only problems I encountered here were learning the c++ syntax. I had to look up the ceiling and floor functions and the list construction syntax.</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/basic2.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of basic/test4.svg.</figcaption>
+      </td>
+      <td>
+        <img src="images/zoom.png" align="middle" width="400px"/>
+        <figcaption align="middle">This is a zoomed in image- interestingly, we see that sampling every pixel causes a skip in pixels. Here, we see a gap in the corner of the thin triangle, since the centers of the pixels are technically outside the lines of the triangle.</figcaption>
+      </td>
+    </tr>
+    <br>
+  </table>
+</div>
+
+
+<h3 align="middle">Part 2: Antialiasing triangles</h3>
+
+<p>To implement supersampling, I first resized the sample buffer by n, which created a larger image where I rasterized the triangles. From there, I grabbed nxn samples from each point, averaged the colors, and placed the images in the frame buffer where the full image was displayed. I edited the scales that we were checking each pixel- we first had to edit the indexing to account for the new size of the buffer, and made sure we were sampling n times per unit pixel. By doing the averaging, we were able to achieve a smoother line due to the lighter colors that blended the line into the background. The biggest issue I had in this section was figuring out the indexing, and how much to multiply each index by, and in which function to do so. At first, I ended up skipping some pixels, which resulted in a much lighter image than intended. I was able to fix this by drawing out a 2x2 example and manually calculating each index, which allowed me to generalize to an nxn sample.</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/level1.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of basic/test4.svg in 1x1 sampling.</figcaption>
+      </td>
+      <td>
+        <img src="images/level4.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of 4x4 sampling.</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/level16.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of 16x16 sampling.</figcaption>
+      </td>
+      <td>
+        <img src="images/16zoom.png" align="middle" width="400px"/>
+        <figcaption align="middle">This is the same corner from part 1, but with 16x16 superssampling. We no longer have jaggies or the extraneous pixel, and the corner extends all the way to the extraneous pixel.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h3 align="middle">Part 3: Transforms</h3>
+<p>We were able to transform points by creating homogenous transform matrices. A translation is done by left multiplying the coordinates by [1, 0, x, 0, 1, y, 0, 0, 1]. This 3x3 homogenous shape allowed us to do addition operations on the coordinates. Our scaling matrix was defined by [sx, 0, 0, 0, sy, 0, 0, 0, 1]. The rotation matrix was defined by [cos(deg), -sin(deg), 0, sin(deg), cos(deg), 0, 0, 0, 1]. The main difficulty here was understanding how the CGL 3x3 matrices were constructed, so I needed to constantly refer to the documentation.</p>
+<img src="images/my_robot.png" align="middle" width="400px"/>
+<figcaption align="middle">The headless horseman o.0</figcaption>
+
+<h2 align="middle">Section II: Sampling</h2>
+
+<h3 align="middle">Part 4: Barycentric coordinates</h3>
+
+<p>Barycentric coordinates are an unrestricted set of basis vectors. They are not limited to being orthogonal or unit length, and are used to express a set of coordinates in terms of other variables. In this case, we set each A, B, and C to the basis color vectors of R, G, and B. We then placed these unit length vectors to be located at each vertex of the triangle. To interpolate the color values of the pixels, we first rasterized the triangle using the same technique as in task 1 and 2. All coordinates are defined by some linear combination of the basis vectors. To find the coefficients for the pixels in the triangle, we used a system of equations. We know that the coefficients alpha, beta and gamma for each vertex sums to one. In addition, we used the formula (-(x-x1)*(y2-y1) + (y-y1) * (x2-x1)) / (-(x0-x1) * (y2-y1) + (y0-y1) * (x2-x1)) for alpha and (-(x-x2)*(y0-y2) + (y-y2) * (x0-x2)) / (-(x1-x2) * (y0-y2) + (y1-y2) * (x0-x2)) for beta.The main problem encountered was concepually understanding how the coefficients could be calculated. I used the lecture slides as a reference, but tried to derive the equations on my own.</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/barycentric.png" align="middle" width="400px"/>
+        <figcaption align="middle">Color wheel of test7.svg with sample rate 1</figcaption>
+      </td>
+      <td>
+        <img src="images/triangle.png" align="middle" width="400px"/>
+        <figcaption align="middle">Triangle with R, G, and B defined at each corner</figcaption>
+      </td>
+    </tr>
+    <br>
+  </table>
+</div>
+
+<h3 align="middle">Part 5: "Pixel sampling" for texture mapping</h3>
+
+<p>Pixel sampling is the act of interpolating color values from nearby locations. Images are displayed discretly, so if a pixel coordinate falls outside of the standard integer values, its neighbors have to be evaluated to approximate a smooth function. We used this to perform texture mapping by evaluating the pixel values at a given texture coordinate. Nearest interpolation is done by giving the texture pixel the same value as the nearest image coordinate. Bilinear sampling first looks at the four neighbors surrounding the pixel, then performs linear interpolation on the colors. The main difficulty here was keeping track of my x and y variables, and noticing a small bug in my barycentric coordinate calculation. I also had difficulties with the program not filling in the edges of the triangle- I had to remove two "in_triangle" checks for the neighboring dy dx coordinates, which got rid of most of the artifacts.</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/level1n.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of 1x1 nearest sampling.</figcaption>
+      </td>
+      <td>
+        <img src="images/level1bi.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of 1x1 bilinear sampling. We see that with bilinear sampling, we see more details with more defined, thicker edges.</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/level4n.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of 4x4 nearest sampling.</figcaption>
+      </td>
+      <td>
+        <img src="images/level4bi.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of 4x4 bilinear sampling. In general, bilinear sampling works like supersampling- we are able to bring about more details by looking at multiple locations.</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/level16n.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of 16x16 nearest sampling.</figcaption>
+      </td>
+      <td>
+        <img src="images/level16bi.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of 16x16 bilinear sampling.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+<h3 align="middle">Part 6: "Level sampling" with mipmaps for texture mapping</h3>
+Explain level sampling in your own words and describe how you implemented it for texture mapping.
+You can now adjust your sampling technique by selecting pixel sampling, level sampling, or the number of samples per pixel. Describe the tradeoffs between speed, memory usage, and antialiasing power between the three various techniques.
+Using a png file you find yourself, show us four versions of the image, using the combinations of L_ZERO and P_NEAREST, L_ZERO and P_LINEAR, L_NEAREST and P_NEAREST, as well as L_NEAREST and P_LINEAR.
+To use your own png, make a copy of one of the existing svg files in svg/texmap/ (or create your own modelled after one of the provided svg files). Then, near the top of the file, change the texture filename to point to your own png. From there, you can run ./draw and pass in that svg file to render it and then save a screenshot of your results.
+Note: Choose a png that showcases the different sampling effects well. You may also want to zoom in/out, use the pixel inspector, etc. to demonstrate the differences.
+<p>Level sampling is the idea that to reduce anti-aliasing in high-frequency locations, we would use a mipmap of a lower level. This is essentiallly the texture map downsampled with its colors averaged. I implemented this by first calculating the frequency of the pixel location, marked by the color change to a neighboring pixel, then picking the level corresponding to the largest frequency. The mipmap carries more memory due to having multiple samples of the image, but is better at producing antialiasing effects. In addition, this would make calcuations slightly slower to take each frequency into account. L_LINEAR and P_LINEAR would have the highest antialiasing effect, but would be slower due to taking into account the neighbors. The most difficult portion of this was that mipmap sizes of greater than 2 resulted in an artifact. This was due to the pixel coordinates of the mipmap being incorrectly scaled to the size of the map.</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/l_zerop_nearest.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of level 0 nearest sampling.</figcaption>
+      </td>
+      <td>
+        <img src="images/l_zerop_linear.png" align="middle" width="400px"/>
+        <figcaption align="middle">level 0 bilinear sampling.</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/l_nearestp_nearest.png" align="middle" width="400px"/>
+        <figcaption align="middle">nearest level nearest sampling.</figcaption>
+      </td>
+      <td>
+        <img src="images/l_nearestp_linear.png" align="middle" width="400px"/>
+        <figcaption align="middle">nearest level bilinear sampling.</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/l_linearp_nearest.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of linear level nearest sampling.</figcaption>
+      </td>
+      <td>
+        <img src="images/l_linearp_linear.png" align="middle" width="400px"/>
+        <figcaption align="middle">The results of trilinear sampling.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+<!--<h2 align="middle">Section III: Art Competition</h2>-->
+<!--<p>If you are not participating in the optional art competition, don't worry about this section!</p>-->
+<!---->
+<!--<h3 align="middle">Part 7: Draw something interesting!</h3>-->
+
+</body>
 </html>
